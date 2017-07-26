@@ -1,0 +1,6 @@
+<component name="ArtifactManager">
+  <artifact type="exploded-war" name="emanageSimulation.war">
+    <output-path>$PROJECT_DIR$/out/artifacts/emanageSimulation_war</output-path>
+    <root id="root" />
+  </artifact>
+</component>

@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.apache.ibatis:ibatis-sqlmap:2.3.0.677">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/mavenRepository/org/apache/ibatis/ibatis-sqlmap/2.3.0.677/ibatis-sqlmap-2.3.0.677.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$USER_HOME$/mavenRepository/org/apache/ibatis/ibatis-sqlmap/2.3.0.677/ibatis-sqlmap-2.3.0.677-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$USER_HOME$/mavenRepository/org/apache/ibatis/ibatis-sqlmap/2.3.0.677/ibatis-sqlmap-2.3.0.677-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
