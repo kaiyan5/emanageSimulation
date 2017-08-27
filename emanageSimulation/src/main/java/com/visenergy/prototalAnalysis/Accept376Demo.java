@@ -1,6 +1,9 @@
 package com.visenergy.prototalAnalysis;
 
+import com.sun.xml.internal.fastinfoset.util.CharArray;
+
 import java.io.*;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Properties;
 
@@ -10,18 +13,11 @@ import java.util.Properties;
 public class Accept376Demo {
     Convert convert=new Convert();
     Send376Demo send376Demo=new Send376Demo();
+    private Properties properties = new Properties();
 
     public String acceptCommandType(String commandType) throws Exception {
         //加载文件，取值
-        //InputStream is = new BufferedInputStream(new FileInputStream("src/collect.properties"));
-        InputStream is=Accept376Demo.class.getResourceAsStream("collect.properties");
-        InputStreamReader isr = new InputStreamReader(is, "UTF-8");
-        Properties properties = new Properties();
-        try {
-            properties.load(isr);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        properties= FileUtils.loadPropFile("collect.properties");
         commandType=convert.addSpace(commandType);
         String[] commands = commandType.trim().split(" ");
         String type=commands[12]+commands[14]+commands[15]+commands[16]+commands[17];
@@ -75,6 +71,11 @@ public class Accept376Demo {
         String controlDIR = control.substring(0, 1);
         String controlPRM = control.substring(1, 2);
         String controlACD = control.substring(2, 3);
+        if(controlACD.equals("1")){
+            System.out.println("ACD＝1 附加信息域中有EC事件");
+        }else{
+            System.out.println("ACD＝0 附加信息域中无EC事件");
+        }
         String controlGNM = control.substring(4);
         int GNM = convert.convertHexTo10String(controlGNM);
         System.out.println(properties.getProperty("C.DIR."+controlDIR));
@@ -142,9 +143,168 @@ public class Accept376Demo {
             contentCommandB.append(commands[i]+" ");
         }
         return contentCommandB.toString();
-
     }
 
+    public void analysisFailCommand(String failCommand) throws Exception {
+        properties= FileUtils.loadPropFile("collect.properties");
+        String regex = "(.{2})";
+        failCommand = failCommand.replaceAll (regex, "$1 ");
+        String[] commands = failCommand.trim().split(" ");
+        //应用层功能码(1)
+        String AFN=commands[12];
+        System.out.println("应用功能AFN："+properties.getProperty("AFN."+AFN));
+
+        //数据单元标识（4）：信息点标识DA，信息类标识DT
+        String DA1=commands[14];
+        String DA2=commands[15];
+        String DT1=commands[16];
+        String DT2=commands[17];
+        System.out.println(properties.getProperty(AFN+DA1+DA2+DT1+DT2));
+        String EC1=commands[18];
+        String EC2=commands[19];
+        String Pm=commands[20];
+        String Pn=commands[21];
+        String ERC=commands[22];
+        //分时日月年
+        String minute=commands[24];
+        String hour=commands[25];
+        String day=commands[26];
+        String month=commands[27];
+        String year=commands[28];
+        if(ERC.equals("09")){
+            System.out.println(properties.getProperty("ERC"+ERC));
+            System.out.println("发生时间："+year+"年"+month+"月"+day+"日"+hour+"时"+minute+"分");
+            String turnNum=commands[31];
+            String turnNumTwo=convert.convertHexTo2String(turnNum);
+            String D6D7=turnNumTwo.substring(0,1)+turnNumTwo.substring(1,2);
+            int D6D7Num=convert.convert2To10String(D6D7);
+            if(turnNumTwo.substring(7).equals("1")){
+                System.out.println("A相电流异常");
+            }
+            if (turnNumTwo.substring(6,7).equals("1")){
+                System.out.println("B相电流异常");
+            }
+            if (turnNumTwo.substring(5,6).equals("1")){
+                System.out.println("C相电流异常");
+            }if (D6D7Num==1){
+                System.out.println("电流异常的类型为短路");
+            }if (D6D7Num==2){
+                System.out.println("电流异常的类型为开路");
+            }if (D6D7Num==3){
+                System.out.println("电流异常的类型为反向");
+            }else{
+                System.out.println("备用");
+            }
+            String[] data = new String[]{commands[33],commands[32]};
+            String num = (dataFormat(data)).toString();
+            BigDecimal bigDecimal = new BigDecimal(num);
+            String[] data2=new String[]{commands[35],commands[34]};
+            String num2 = (dataFormat(data2)).toString();
+            BigDecimal bigDecimal2 = new BigDecimal(num2);
+            String[] data3=new String[]{commands[37],commands[36]};
+            String num3 = (dataFormat(data3)).toString();
+            BigDecimal bigDecimal3 = new BigDecimal(num3);
+            System.out.println("发生时的Ua:"+bigDecimal.multiply(new BigDecimal(0.1))+"v");
+            System.out.println("发生时的Ub:"+bigDecimal2.multiply(new BigDecimal(0.1))+"v");
+            System.out.println("发生时的Uc:"+bigDecimal3.multiply(new BigDecimal(0.1))+"v");
+
+            String[] IAdata = new String[]{commands[36],commands[35],commands[34]};
+            String IAnum = (dataFormat(IAdata)).toString();
+            BigDecimal IAbigDecimal = new BigDecimal(IAnum);
+            String[] IBdata2=new String[]{commands[39],commands[38],commands[37]};
+            String IBnum2 = (dataFormat(IBdata2)).toString();
+            BigDecimal IBbigDecimal2 = new BigDecimal(IBnum2);
+            String[] ICdata3=new String[]{commands[42],commands[41],commands[40]};
+            String ICnum3 = (dataFormat(ICdata3)).toString();
+            BigDecimal ICbigDecimal3 = new BigDecimal(ICnum3);
+            System.out.println("发生时的Ia:"+IAbigDecimal.multiply(new BigDecimal(0.001))+"A");
+            System.out.println("发生时的Ib:"+IBbigDecimal2.multiply(new BigDecimal(0.001))+"A");
+            System.out.println("发生时的Ic:"+ICbigDecimal3.multiply(new BigDecimal(0.001))+"A");
+
+            String[] totalData=new String[]{commands[47],commands[46],commands[45],commands[44],commands[43]};
+            String totalNum = (dataFormat(totalData)).toString();
+            BigDecimal totalBigDecimal = new BigDecimal(totalNum);
+            System.out.println("发生时电能表正向有功总电能示值:"+totalBigDecimal.multiply(new BigDecimal(0.01))+"kwh");
+
+        }else if(ERC.equals("10")){
+            System.out.println(properties.getProperty("ERC"+ERC));
+            System.out.println("发生时间："+year+"年"+month+"月"+day+"日"+hour+"时"+minute+"分");
+            String turnNum=commands[31];
+            String turnNumTwo=convert.convertHexTo2String(turnNum);
+            String D6D7=turnNumTwo.substring(0,1)+turnNumTwo.substring(1,2);
+            int D6D7Num=convert.convert2To10String(D6D7);
+            if(turnNumTwo.substring(7).equals("1")){
+                System.out.println("A相电压异常");
+            }else if (turnNumTwo.substring(6,7).equals("1")){
+                System.out.println("B相电压异常");
+            } else if (turnNumTwo.substring(5,6).equals("1")){
+                System.out.println("C相电压异常");
+            }else if (D6D7Num==1){
+                System.out.println("电压异常的类型为断相");
+            }else if (D6D7Num==2){
+                System.out.println("电压异常的类型为失压");
+            }else{
+                System.out.println("备用");
+            }
+            String[] data = new String[]{commands[33],commands[32]};
+            String num = (dataFormat(data)).toString();
+            BigDecimal bigDecimal = new BigDecimal(num);
+            String[] data2=new String[]{commands[35],commands[34]};
+            String num2 = (dataFormat(data2)).toString();
+            BigDecimal bigDecimal2 = new BigDecimal(num2);
+            String[] data3=new String[]{commands[37],commands[36]};
+            String num3 = (dataFormat(data3)).toString();
+            BigDecimal bigDecimal3 = new BigDecimal(num3);
+            System.out.println("发生时的Ua:"+bigDecimal.multiply(new BigDecimal(0.1))+"v");
+            System.out.println("发生时的Ub:"+bigDecimal2.multiply(new BigDecimal(0.1))+"v");
+            System.out.println("发生时的Uc:"+bigDecimal3.multiply(new BigDecimal(0.1))+"v");
+
+            String[] IAdata = new String[]{commands[36],commands[35],commands[34]};
+            String IAnum = (dataFormat(IAdata)).toString();
+            BigDecimal IAbigDecimal = new BigDecimal(IAnum);
+            String[] IBdata2=new String[]{commands[39],commands[38],commands[37]};
+            String IBnum2 = (dataFormat(IBdata2)).toString();
+            BigDecimal IBbigDecimal2 = new BigDecimal(IBnum2);
+            String[] ICdata3=new String[]{commands[42],commands[41],commands[40]};
+            String ICnum3 = (dataFormat(ICdata3)).toString();
+            BigDecimal ICbigDecimal3 = new BigDecimal(ICnum3);
+            System.out.println("发生时的Ia:"+IAbigDecimal.multiply(new BigDecimal(0.001))+"A");
+            System.out.println("发生时的Ib:"+IBbigDecimal2.multiply(new BigDecimal(0.001))+"A");
+            System.out.println("发生时的Ic:"+ICbigDecimal3.multiply(new BigDecimal(0.001))+"A");
+
+            String[] totalData=new String[]{commands[47],commands[46],commands[45],commands[44],commands[43]};
+            String totalNum = (dataFormat(totalData)).toString();
+            BigDecimal totalBigDecimal = new BigDecimal(totalNum);
+            System.out.println("发生时电能表正向有功总电能示值:"+totalBigDecimal.multiply(new BigDecimal(0.01))+"kwh");
+
+        }else if(ERC.equals("14")){
+            System.out.println(properties.getProperty("ERC"+ERC));
+            System.out.println("停电发生时间："+year+"年"+month+"月"+day+"日"+hour+"时"+minute+"分");
+            //分时日月年
+            String minuteOn=commands[29];
+            String hourOn=commands[30];
+            String dayOn=commands[31];
+            String monthOn=commands[32];
+            String yearOn=commands[33];
+            System.out.println("上电时间："+yearOn+"年"+monthOn+"月"+dayOn+"日"+hourOn+"时"+minuteOn+"分");
+        }else{
+            System.out.println("未处理的故障信息");
+        }
+
+    }
+    public static StringBuffer dataFormat(String data[]){
+        StringBuffer sbr=new StringBuffer();
+        for (int i = 0; i < data.length; i++) {
+            if(data[i].equals("32")) {
+                data[i]="FF";
+            }
+            String data1=String.valueOf(Integer.parseInt(data[i].substring(0,1),16)-3);
+            String data2=String.valueOf(Integer.parseInt(data[i].substring(1),16)-3);
+            sbr.append(data1);
+            sbr.append(data2);
+        }
+        return sbr;
+    }
 
     public static void main (String[]args) throws Exception {
 

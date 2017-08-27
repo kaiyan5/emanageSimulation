@@ -105,9 +105,81 @@ public class Send376Demo {
         }
         return commands;
     }
+    //3类数据上行报文
+    public String getFailCommand(String A_colletor){
+        if (count > 255) {
+            count = 0;
+        }
+        String PFC;
+        if (count < 16) {
+            PFC = "0" + String.valueOf(Integer.toHexString(count));
+        } else PFC = Integer.toHexString(count);
+        //  System.out.println("++++++++++++"+count);
+        //PFC = String.format("%02d", Integer.valueOf(Integer.toHexString(count)));
+        String PSEQ_1 = "1110";
+        String PSEQ_2 = convert.convertHexTo2String(PFC).substring(4);
+        String PESQ = convert.convert2ToHexString(PSEQ_1 + PSEQ_2);
+        count = count + 1;
+
+        StringBuffer sendCommand = new StringBuffer();
+        //起始
+        sendCommand.append("68DA00DA0068");
+        //控制域
+        sendCommand.append("A1");
+        //集中器地址
+        sendCommand.append(A_colletor);
+        //AFN功能码
+        sendCommand.append("0E");
+        //PESQ计数器，取PFC低四位
+        sendCommand.append(PESQ);
+        //信息点标识DA1，DA2，DT1，DT2，DT2
+        sendCommand.append("00000100");
+
+        //EC1/EC2
+        sendCommand.append("0100");
+        //事件记录指针
+        sendCommand.append("0001");
+        //事件记录类型
+        sendCommand.append("09");
+        //事件记录长度
+        sendCommand.append("1C");
+        //变更事件：分时日月年
+        sendCommand.append("3013260717");
+        //起止标志、测量点号
+        sendCommand.append("8002");
+        //异常标志
+        sendCommand.append("C7");
+        //发生时三相电压
+        sendCommand.append("782306243322");
+        //发生时三相电流
+        sendCommand.append("C337B3A337B3A537B3");
+        //发生时电能表正向有功电能总示值
+        sendCommand.append("3333332222");
+        //附加信息域EC
+        sendCommand.append("0100");
+
+        //附加信息域TP
+        //计数器
+        sendCommand.append(PFC);
+        //BCD码日期字段
+        int second = calendar.get(Calendar.SECOND);
+        int minute = calendar.get(Calendar.MINUTE);
+        int hour = calendar.get(Calendar.HOUR_OF_DAY);
+        int day = calendar.get(Calendar.DATE);
+        sendCommand.append(String.format("%02d", second));
+        sendCommand.append(String.format("%02d", minute));
+        sendCommand.append(String.format("%02d", hour));
+        sendCommand.append(String.format("%02d", day));
+        sendCommand.append("10");
+        String CS_jisuan = sendCommand.toString().substring(12);
+        String CS_All = convert.toHexString(convert.SumCheck(convert.hexStringToBytes(CS_jisuan), 1));
+        sendCommand.append(CS_All);
+        sendCommand.append("16");
+        return sendCommand.toString();
+    }
 
 
-    // 请求1类数据，F25 当前三相及总有/无功功率、功率因数，三相电压、电流、零序电流、视在功率命令生成
+    //请求1类数据，F25 当前三相及总有/无功功率、功率因数，三相电压、电流、零序电流、视在功率命令生成
     public String[] getAllCommand(String A_colletor){
         if (count > 255) {
             count = 0;
@@ -150,7 +222,6 @@ public class Send376Demo {
         String []a=new String[]{sendCommand.toString()};
         return a;
     }
-
     //解析集中器发过来的登录命令
     //举例：683200320068 C9 3107010000 02 70 00000100 75 16
     public String loginCommand(String loginCommand) throws FileNotFoundException, UnsupportedEncodingException {
@@ -226,8 +297,15 @@ public class Send376Demo {
         System.out.println(allCommand);
         String a[]=new Send376Demo().getSendCommand("02010300","02", "3107010000","020000999999");
         System.out.println(a[0]);*/
-        String all[]=new Send376Demo().getAllCommand("0417090000");
-        System.out.print(all[0]);
+       // String all[]=new Send376Demo().getAllCommand("0417090000");
+       // System.out.print(all[0]);
+        String a=new Send376Demo().getFailCommand("0417090000");
+        System.out.println(a);
+        try {
+            new Accept376Demo().analysisFailCommand(a);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
     }
 }

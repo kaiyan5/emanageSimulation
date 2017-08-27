@@ -138,17 +138,7 @@ public class ServerSocket {
 							}
 						}
 					}
-					else {
-						JSONObject jsonObject=JSONObject.fromObject(sendText1);
-						if(list.size()>0){
-							for (int k = 0; k <list.size() ; k++) {
 
-							}
-						}else{
-							Collect collect=new Collect(1);
-							collect.
-						}
-					}
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -199,8 +189,8 @@ public class ServerSocket {
 						}*/
 					try {
 						String[] b = new String[]{"210000119039"};
-						//sendText=new Send376Demo().getSendCommand("02010300","01","0417090000",b);
-						sendText=new Send376Demo().getAllCommand("0417090000");
+						sendText=new Send376Demo().getSendCommand("02010300","01","0417090000",b);
+						//sendText=new Send376Demo().getAllCommand("0417090000");
 						if (!clientsMap.isEmpty()){
 							for (Map.Entry<String, SocketChannel> entry : clientsMap.entrySet()) {
 								SocketChannel temp = entry.getValue();

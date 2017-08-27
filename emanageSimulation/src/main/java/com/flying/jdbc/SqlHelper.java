@@ -252,7 +252,6 @@ public class SqlHelper {
                                        Parameter... parameters) throws Exception {
 		
 		Statement stmt = null;
-		
 		try {
 			if (commandType.equals(CommandType.Text)) {
 				if(commandText.contains("?")){
@@ -322,71 +321,30 @@ public class SqlHelper {
 	 * @param connection
 	 * @param commandType
 	 * @param commandText
-	 * @param parameters
 	 * @throws Exception
 	 */
 	public static void executeBatchInsert(DBConnection connection,
-                                          CommandType commandType, String commandText,
-                                          Parameter... parameters) throws Exception {
+                                          CommandType commandType, String commandText,List<Parameter[]> list) throws Exception {
 
 		Statement stmt = null;
+		Connection conn=connection.GetConnection();
+		conn.setAutoCommit(false);
+		stmt = conn.prepareStatement(commandText);
 
 		try {
-			if (commandType.equals(CommandType.Text)) {
-				if(commandText.contains("?")){
-					stmt = connection.GetConnection().prepareStatement(commandText);
-					Parameter[] paras = parameters;
-					for(int i = 0;i<paras.length;i++){
-						((PreparedStatement)stmt).setObject(i+1, paras[i].Value, paras[i].parameterType);
-					}
-					((PreparedStatement)stmt).execute();
-					((PreparedStatement)stmt).close();
-				}else{
-					stmt = connection.GetConnection().createStatement();
-					stmt.execute(commandText);
-					stmt.close();
-				}
-
-			} else if (commandType.equals(CommandType.StoreProcedure)) {
-
-				Parameter[] paras = parameters;
-
-				String sql = "";
-				for (int i = 0; i < paras.length; i++) {
-					sql = sql + "?,";
-				}
-				if (sql.length() > 0) {
-					sql = "(" + sql.substring(0, sql.length() - 1) + ")";
-				}
-
-				sql = "{ call " + commandText + sql + " }";
-				stmt = connection.GetConnection().prepareCall(sql);
-				for (int i = 0; i < paras.length; i++) {
-					Parameter p = paras[i];
-					if (p.parameterDirection == ParameterDirection.IN) {
-						((CallableStatement)stmt).setObject(i + 1, p.Value, p.parameterType);
-					} else if (p.parameterDirection == ParameterDirection.OUT) {
-						((CallableStatement)stmt).registerOutParameter(i + 1, p.parameterType);
-					}
-				}
-
-				((CallableStatement)stmt).execute();
-				//支持游标
-				for (int i = 0; i < paras.length; i++) {
-					Parameter p = paras[i];
-					if (p.parameterDirection == ParameterDirection.OUT) {
-						p.Value = ((CallableStatement)stmt).getObject(i + 1);
-						if (p.parameterType == -10) {//oracle.jdbc.OracleTypes.CURSOR:oracle游标的值
-							ResultSet rs = (ResultSet) p.Value;
-							DataTable dt = convertResultSetToDataTable(rs);
-							DataSet _lds = new DataSet();
-							_lds.AddTable(dt);
-							p.Value = _lds;
+			if(commandType.equals(CommandType.Text)) {
+				for (int j=0;j<list.size();j++){
+					if(commandText.contains("?")){
+						Parameter[] paras = list.get(j);
+						for(int i = 0;i<paras.length;i++){
+							((PreparedStatement)stmt).setObject(i+1, paras[i].Value, paras[i].parameterType);
 						}
+						((PreparedStatement)stmt).addBatch();
 					}
 				}
-			} else {
-				throw new Exception("commandType is invalid");
+				((PreparedStatement)stmt).executeBatch();
+				conn.commit();
+				conn.close();
 			}
 		} catch (Exception e) {
 			connection.Close();
