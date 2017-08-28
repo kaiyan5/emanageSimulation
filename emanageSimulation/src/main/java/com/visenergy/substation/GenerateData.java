@@ -12,6 +12,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -31,7 +32,6 @@ public class GenerateData {
 		//初始化数据库连接池
 		SqlHelper.connPool = new DBConnectionPool(20);
 		jedisPool=RedisPool.getPool();
-		jedis=jedisPool.getResource();
 	}
 
 	/**
@@ -40,6 +40,7 @@ public class GenerateData {
 	public static void generateCollectData(String METER_ID,double USE_TOTAL,Timestamp time){
 		String sql = "insert  into T_EMANAGE_COLLECT(ID,METER_ID,UA,UB,UC,IA,IB,IC,PA,PB,PC,U_TOTAL,I_TOTAL,P_TOTAL,USE_TOTAL,TIME) values" +
 				"(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+		boolean broken = false;
 		Map map=new HashMap();
 		map.put("METER_ID",METER_ID);
 		map.put("USE_TOTAL",USE_TOTAL);
@@ -49,14 +50,9 @@ public class GenerateData {
 		try {
 			jedis.lpush("listCollect",collectString);
 
-		}catch (Exception e){
-			//释放redis对象
-			jedisPool.returnBrokenResource(jedis);
-
-			e.printStackTrace();
-		}finally {
-			//返还到连接池
-			RedisPool.returnResource(jedisPool, jedis);
+		}catch (JedisException e) {
+			broken = RedisPool.handleJedisException(e);
+			throw e;
 		}
 
 		Parameter[] params = new Parameter[16];
@@ -114,7 +110,9 @@ public class GenerateData {
 	public static void generateAllCollectData(){
 		double USE_TOTAL=0;
 		Timestamp time=null;
-		/*if(collectList.size()>0){
+
+		/*没有使用redis
+		if(collectList.size()>0){
 			for (int f=0;f<meterList.size();f++){
 				if(collectList.get(f).get("METER_ID").equals(meterList.get(f))){
 					USE_TOTAL=new BigDecimal(Math.random()*50+1).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+(double)collectList.get(f).get("USE_TOTAL");
@@ -135,47 +133,74 @@ public class GenerateData {
 				generateCollectData(meterList.get(i),USE_TOTAL,time);
 			}
 		}*/
-		jedisPool=RedisPool.getPool();
-		jedis=jedisPool.getResource();
-		Long length=jedis.llen("listCollect");
-		meters=jedis.lrange("meterCollect",0,-1);
-		if(jedis.llen("listCollect")>0){
-			for(int f=0;f<meters.size();f++){
-				JSONObject jsonObject=JSONObject.fromObject(jedis.rpop("listCollect"));
-				Timestamp t=Timestamp.valueOf(jsonObject.getString("time"));
-				if(jsonObject.get("METER_ID").equals(meters.get(f))){
-					USE_TOTAL=new BigDecimal(Math.random()*1+0.8).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
-					time=new Timestamp(t.getTime()+1*60*1000L);
-					generateCollectData(meters.get(f),USE_TOTAL,time);
+		boolean broken = false;
+		try {
+			jedis = jedisPool.getResource();
+			Long length=jedis.llen("listCollect");
+			meters=jedis.lrange("meterCollect",0,-1);
+			if(jedis.llen("listCollect")>0){
+				/*每一时辰点生成2条数据
+				for(int f=0;f<meters.size();f++){
+					JSONObject jsonObject=JSONObject.fromObject(jedis.rpop("listCollect"));
+					Timestamp t=Timestamp.valueOf(jsonObject.getString("time"));
+					if(jsonObject.get("METER_ID").equals(meters.get(f))){
+						USE_TOTAL=new BigDecimal(Math.random()*1+1).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
+						time=new Timestamp(t.getTime()+2*60*1000L);
+						generateCollectData(meters.get(f),USE_TOTAL,time);
+					}
 				}
+				for (int f=0;f<meters.size();f++){
+					JSONObject jsonObject=JSONObject.fromObject(jedis.rpop("listCollect"));
+					Timestamp t=Timestamp.valueOf(jsonObject.getString("time"));
+					if(jsonObject.get("METER_ID").equals(meters.get(f))){
+						USE_TOTAL=new BigDecimal(Math.random()*2+4).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
+						time=new Timestamp(t.getTime()+58*60*1000L);
+						generateCollectData(meters.get(f),USE_TOTAL,time);
+
+						//USE_TOTAL=new BigDecimal(Math.random()*200+200).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
+						//time=new Timestamp(t.getTime()+2*24*3600*1000L);
+						//USE_TOTAL=new BigDecimal(Math.random()*2+3).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
+						//time=new Timestamp(t.getTime()+1*3600*1000L);
+						//USE_TOTAL = new BigDecimal(Math.random() * 50 + 50).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue() + jsonObject.getDouble("USE_TOTAL");
+						//time = new Timestamp(t.getTime() + 23 * 3600 * 1000L);
+
+					}
+				}*/
+				for (int f=0;f<meters.size();f++){
+					JSONObject jsonObject=JSONObject.fromObject(jedis.rpop("listCollect"));
+					Timestamp t=Timestamp.valueOf(jsonObject.getString("time"));
+					if(jsonObject.get("METER_ID").equals(meters.get(f))){
+						USE_TOTAL=new BigDecimal(Math.random()*1+4).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
+						time=new Timestamp(t.getTime()+15*60*1000L);
+						generateCollectData(meters.get(f),USE_TOTAL,time);
+
+						//USE_TOTAL=new BigDecimal(Math.random()*200+200).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
+						//time=new Timestamp(t.getTime()+2*24*3600*1000L);
+						//USE_TOTAL=new BigDecimal(Math.random()*2+3).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
+						//time=new Timestamp(t.getTime()+1*3600*1000L);
+						//USE_TOTAL = new BigDecimal(Math.random() * 50 + 50).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue() + jsonObject.getDouble("USE_TOTAL");
+						//time = new Timestamp(t.getTime() + 23 * 3600 * 1000L);
+
+					}
+				}
+
 			}
-			for (int f=0;f<meters.size();f++){
-				JSONObject jsonObject=JSONObject.fromObject(jedis.rpop("listCollect"));
-				Timestamp t=Timestamp.valueOf(jsonObject.getString("time"));
-				if(jsonObject.get("METER_ID").equals(meters.get(f))){
-					USE_TOTAL=new BigDecimal(Math.random()*1+3).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
-					time=new Timestamp(t.getTime()+59*60*1000L);
-					generateCollectData(meters.get(f),USE_TOTAL,time);
-
-					//USE_TOTAL=new BigDecimal(Math.random()*200+200).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
-					//time=new Timestamp(t.getTime()+2*24*3600*1000L);
-					//USE_TOTAL=new BigDecimal(Math.random()*2+3).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue()+jsonObject.getDouble("USE_TOTAL");
-					//time=new Timestamp(t.getTime()+1*3600*1000L);
-					//USE_TOTAL = new BigDecimal(Math.random() * 50 + 50).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue() + jsonObject.getDouble("USE_TOTAL");
-					//time = new Timestamp(t.getTime() + 23 * 3600 * 1000L);
-
+			else{
+				USE_TOTAL=1000.00 + (new BigDecimal(Math.random()+1).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue());
+				time=new Timestamp(System.currentTimeMillis()-556*24*3600*1000L);
+				for (int i = 0; i < meters.size(); i++) {
+					generateCollectData(meters.get(i),USE_TOTAL,time);
 				}
 			}
 
 		}
-		else{
-			USE_TOTAL=1000.00 + (new BigDecimal(Math.random()+1).setScale(2, BigDecimal.ROUND_HALF_UP).doubleValue());
-			time=new Timestamp(System.currentTimeMillis()-556*24*3600*1000L);
-			for (int i = 0; i < meters.size(); i++) {
-				generateCollectData(meters.get(i),USE_TOTAL,time);
-			}
+		catch (JedisException e) {
+			broken = RedisPool.handleJedisException(e);
+			throw e;
+		} finally {
+			RedisPool.closeResource(jedis, broken);
 		}
-		RedisPool.returnResource(jedisPool,jedis);
+
 	}
 
 	/**
@@ -183,7 +208,7 @@ public class GenerateData {
 	 */
 	public static void main(String[] args) {
 		GenerateData.init();
-		for(int i=0;i<=5;i++) {
+		for(int i=0;i<=15;i++) {
 			GenerateData.generateAllCollectData();
 		}
 

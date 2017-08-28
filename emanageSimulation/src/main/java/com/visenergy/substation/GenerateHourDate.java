@@ -105,12 +105,37 @@ public class GenerateHourDate {
         }
 
     }
+    public static void insertYearCollect(String date) throws Exception {
+        List months = DateFormat.getMonths(date);
+        for (int i = 0; i < months.size() - 1; i++) {
+            String dateStart=(String) months.get(i);
+            String dateEnd=(String) months.get(i+1);
+            List<Map> resultList=GenerateHourDate.getCollect(dateStart,dateEnd);
+            log.info(resultList.size());
+            List<Parameter[]> list=new ArrayList<Parameter[]>();
+            DBConnection conn = SqlHelper.connPool.getConnection();
+            String sql = "INSERT INTO T_EMANAGE_COLLECT_MONTHOFYEAR_"+ date+" (METER_SERIAL,USE_TOTAL,TIME) values"
+                    +"(?,?,?)";
+            if(resultList.size()>0){
+                for(int j=0;j<resultList.size();j++) {
+                    Parameter[] params = new Parameter[3];
+                    params[0]=new Parameter("METER_SERIAL", BaseTypes.VARCHAR,resultList.get(i).get("METER_SERIAL"));
+                    params[1]=new Parameter("USE_TOTAL",BaseTypes.DECIMAL,resultList.get(i).get("TOTAL"));
+                    params[2]=new Parameter("TIME", BaseTypes.VARCHAR,dateStart);
+                    list.add(params);
+                }
+                SqlHelper.executeBatchInsert(conn,CommandType.Text,sql,list);
+            }else{
+                log.info(dateStart+"：当月没有数据");
+            }
+        }
+    }
 
     public static void main(String[] args) throws Exception {
         init();
         insertDayCollect("2017-8-15");
         //insertMonthCollect("2017-8");
-
+        //insertYearCollect("2017");
     }
 
 }

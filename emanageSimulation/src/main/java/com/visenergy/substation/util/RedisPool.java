@@ -1,14 +1,21 @@
 package com.visenergy.substation.util;
 
+import org.apache.log4j.Logger;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.exceptions.JedisConnectionException;
+import redis.clients.jedis.exceptions.JedisDataException;
+import redis.clients.jedis.exceptions.JedisException;
+
+import javax.management.remote.rmi.RMIConnector;
 
 /**
  * Created by zhonghuan on 17/7/9.
  */
 public class RedisPool {
     private static JedisPool pool = null;
+    private static Logger logger = Logger.getLogger(RedisPool.class);
 
     public static JedisPool getPool() {
 
@@ -35,12 +42,46 @@ public class RedisPool {
 
             config.setTestOnBorrow(true);
 
-            pool = new JedisPool(config, "127.0.0.1", 6379);
+            pool = new JedisPool(config, "192.168.100.100", 6379);
 
         }
 
         return pool;
 
+    }
+
+    /**
+     * Handle jedisException, write log and return whether the connection is broken.
+     */
+    public static boolean handleJedisException(JedisException jedisException) {
+        if (jedisException instanceof JedisConnectionException) {
+            logger.error("Redis connection  lost.", jedisException);
+        } else if (jedisException instanceof JedisDataException) {
+            if ((jedisException.getMessage() != null) && (jedisException.getMessage().indexOf("READONLY") != -1)) {
+                logger.error("Redis connection  are read-only slave.", jedisException);
+            } else {
+                // dataException, isBroken=false
+                return false;
+            }
+        } else {
+            logger.error("Jedis exception happen.", jedisException);
+        }
+        return true;
+    }
+    /**
+     * Return jedis connection to the pool, call different return methods depends on the conectionBroken status.
+     */
+    public static void closeResource(Jedis jedis, boolean conectionBroken) {
+        try {
+            if (conectionBroken) {
+                pool.returnBrokenResource(jedis);
+            } else {
+                pool.returnResource(jedis);
+            }
+        } catch (Exception e) {
+            logger.error("return back jedis failed, will fore close the jedis.", e);
+            pool.returnBrokenResource(jedis);
+        }
     }
     public static void returnResource(JedisPool pool, Jedis redis) {
 

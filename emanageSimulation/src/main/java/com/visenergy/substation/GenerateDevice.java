@@ -11,6 +11,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -28,7 +29,8 @@ public class GenerateDevice {
         //初始化数据库连接池
         SqlHelper.connPool = new DBConnectionPool(20);
         jedisPool= RedisPool.getPool();
-        jedis=jedisPool.getResource();
+        Jedis jedis = null;
+
     }
     public static List<Map> getBuilding() {
         String sql = "SELECT * FROM T_EMANAGE_BUILDING";
@@ -44,8 +46,22 @@ public class GenerateDevice {
         SqlHelper.connPool.releaseConnection(conn);
         return resultList;
     }
+
     public static List<Map> getCollect(){
-        String sql="SELECT * FROM T_EMANAGE_COLLECT WHERE TIME='2017-07-03 00:59:59'";
+        String sql="SELECT A.METER_ID,A.USE_TOTAL,A.TIME FROM T_EMANAGE_COLLECT A LEFT JOIN T_EMANAGE_METER B ON A.METER_ID=B.ID WHERE A.TIME='2017-07-05 00:01:59' ORDER BY A.METER_ID DESC";
+        List<Map> resultList = null;
+        DBConnection conn = SqlHelper.connPool.getConnection();
+        try {
+            resultList = SqlHelper.executeQuery(conn, CommandType.Text, sql);
+        } catch (Exception e) {
+            log.error("查询数据出错！", e);
+            return null;
+        }
+        SqlHelper.connPool.releaseConnection(conn);
+        return resultList;
+    }
+    public static List<Map> getMeter(){
+        String sql="SELECT ID FROM T_EMANAGE_METER ORDER BY ID DESC";
         List<Map> resultList = null;
         DBConnection conn = SqlHelper.connPool.getConnection();
         try {
@@ -182,14 +198,30 @@ public class GenerateDevice {
 
     public static void main(String[] args) {
         GenerateDevice.init();
-        List<Map> list=getCollect();
-        for (int i = 0; i <list.size() ; i++) {
-            String METER_ID=list.get(i).get("METER_ID").toString();
-            String USE_TOTAL=list.get(i).get("USE_TOTAL").toString();
-            String time=list.get(i).get("TIME").toString();
-            String collectString="{METER_ID='"+METER_ID+"',USE_TOTAL='"+USE_TOTAL+"',time='"+time+"'}";
-            jedis.lpush("listCollect",collectString);
+        List<Map> listCollect=getCollect();
+        List<Map> listMeter=getMeter();
+        boolean broken = false;
+        /*生成采集数据最新事件的一批数据保存在redis*/
+        try {
+            jedis = jedisPool.getResource();
+            for (int i = 0; i <listCollect.size() ; i++) {
+                String METER_ID=listCollect.get(i).get("METER_ID").toString();
+                String USE_TOTAL=listCollect.get(i).get("USE_TOTAL").toString();
+                String time=listCollect.get(i).get("TIME").toString();
+                String collectString="{METER_ID='"+METER_ID+"',USE_TOTAL='"+USE_TOTAL+"',time='"+time+"'}";
+                jedis.lpush("listCollect",collectString);
+            }
+        /*电能表的表号放在redis里*/
+            /*for (int j=0;j<listMeter.size();j++){
+                jedis.rpush("meterCollect",listMeter.get(j).get("ID").toString());
+            }*/
+        } catch (JedisException e) {
+            broken = RedisPool.handleJedisException(e);
+            throw e;
+        } finally {
+            RedisPool.closeResource(jedis, broken);
         }
+
         //GenerateDevice.generateAllDeviceData();
     }
 }
