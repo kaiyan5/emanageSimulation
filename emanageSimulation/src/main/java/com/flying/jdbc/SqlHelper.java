@@ -317,12 +317,14 @@ public class SqlHelper {
 		stmt.close();
 	}
 	/**
-	 *
+	 *@author zhonghuan
 	 * @param connection
 	 * @param commandType
 	 * @param commandText
+	 * @param list
 	 * @throws Exception
 	 */
+
 	public static void executeBatchInsert(DBConnection connection,
                                           CommandType commandType, String commandText,List<Parameter[]> list) throws Exception {
 

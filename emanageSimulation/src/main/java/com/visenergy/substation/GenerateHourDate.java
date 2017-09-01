@@ -7,11 +7,11 @@ import com.flying.jdbc.db.type.BaseTypes;
 import com.flying.jdbc.util.DBConnection;
 import com.flying.jdbc.util.DBConnectionPool;
 import com.visenergy.substation.util.DateFormat;
-import com.visenergy.substation.util.RedisPool;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import redis.clients.jedis.Jedis;
 
+
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,9 +20,7 @@ import java.util.Map;
  * Created by zhonghuan on 2017/8/22.
  */
 public class GenerateHourDate {
-    private static Log log = LogFactory.getLog(GenerateData.class);
-    public static List<Map> collectorList=new ArrayList<>();
-    public static List<String> meterList=new ArrayList<>();
+    private static  Log log = LogFactory.getLog(GenerateHourDate.class);
     public static void init(){
         //初始化数据库连接池
         SqlHelper.connPool = new DBConnectionPool(20);
@@ -52,6 +50,7 @@ public class GenerateHourDate {
                 String dateStart=(String) hours.get(j);
                 String dateEnd=(String) hours.get(j+1);
                 List<Map> resultList=GenerateHourDate.getCollect(dateStart,dateEnd);
+
                 log.info(resultList.size());
                 List<Parameter[]> list=new ArrayList<Parameter[]>();
                 DBConnection conn = SqlHelper.connPool.getConnection();
@@ -67,7 +66,7 @@ public class GenerateHourDate {
                     }
                     SqlHelper.executeBatchInsert(conn,CommandType.Text,sql,list);
                 }else{
-                    System.out.println(dateStart+"该时辰无数据");
+                    log.info(dateStart+"：该时辰无数据");
                 }
 
             }
@@ -133,7 +132,8 @@ public class GenerateHourDate {
 
     public static void main(String[] args) throws Exception {
         init();
-        insertDayCollect("2017-8-15");
+
+        insertDayCollect("2017-8-27");
         //insertMonthCollect("2017-8");
         //insertYearCollect("2017");
     }
